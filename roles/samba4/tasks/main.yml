@@ -1,0 +1,3 @@
+---
+- include_tasks: install_samba4.yml
+  when: samba4_setup == true

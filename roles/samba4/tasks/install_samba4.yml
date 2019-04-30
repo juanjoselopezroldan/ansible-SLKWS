@@ -1,0 +1,44 @@
+- name: apt cache is up to date
+  apt: update_cache=yes
+
+- name: Install samba4
+  apt: pkg={{item}}
+  with_items:
+   - libcups2
+   - samba
+   - samba-client
+   - samba-common
+   - cups
+
+- name: Configure Samba as a domain member
+  template:
+    src: smb.conf
+    dest: /etc/samba/smb.conf
+
+- name: Create dir alluser
+  command: mkdir -p /home/shares/allusers
+
+- name: Chown user
+  command: chown -R root:users /home/shares/allusers/
+
+- name: Chmod
+  command: chmod -R ug+rwx,o+rx-w /home/shares/allusers/
+
+- name: samba_users | adding samba users to samba groups
+  user:
+    name: "{{ item[0]['name'] }}"
+    groups: "{{ item[1] }}"
+    append: yes
+  with_subelements:
+    - "{{ samba_users }}"
+    - groups
+
+- name: samba_users | creating samba user passwords
+  shell: "(echo {{ item['smbpasswd'] }}; echo {{ item['smbpasswd'] }}) | smbpasswd -s -a {{ item['name'] }}"
+  with_items: "{{ samba_users }}"
+  
+- name: Enable samba4
+  systemd:
+    name: smbd
+    state: restarted
+    enabled: yes

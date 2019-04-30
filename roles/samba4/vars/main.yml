@@ -1,0 +1,5 @@
+samba_users:
+  - name: prueba1
+    groups:
+      - users
+    smbpasswd: root
