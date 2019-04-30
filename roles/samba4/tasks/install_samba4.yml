@@ -1,19 +1,23 @@
 - name: apt cache is up to date
-  apt: update_cache=yes
+  apt: 
+    update_cache: yes
+    upgrade: yes
 
-- name: Install samba4
+- name: Install samba4, kerberos, winbind
   apt: pkg={{item}}
   with_items:
-   - libcups2
    - samba
-   - samba-client
-   - samba-common
-   - cups
+   - krb5-user
+   - krb5-config
+   - winbind
+   - libpam-winbind
+   - libnss-winbind
+   - libapache2-mod-auth-kerb
 
-- name: Configure Samba as a domain member
+- name: Configure Krb5
   template:
-    src: smb.conf
-    dest: /etc/samba/smb.conf
+    src: krb5.conf
+    dest: /etc/samba/krb5.conf
 
 - name: Create dir alluser
   command: mkdir -p /home/shares/allusers
