@@ -1,6 +1,12 @@
 ---
+name_node: "node-1"
 kerberos_realm: "example.com"
 kerberos_client_dns_lookup_realm: "false"
 kerberos_client_dns_lookup_kdc: "true"
+client_sssd: "node-2"
+adminpass: "asd.123"
+domain_simple: "example"
+userexample: "test"
+passwordexample: "asd.123"
 reverse_zone: "10.45.10"
 reverse_reverse_zone: "10.45.10"

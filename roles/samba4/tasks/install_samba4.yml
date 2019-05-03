@@ -3,6 +3,19 @@
     update_cache: yes
     upgrade: yes
 
+- name: Define nodes in the file hosts
+  template:
+    src: hosts.j2
+    dest: /etc/hosts
+
+- name: Define host in the system
+  command: "{{ item }}"
+  with_items:
+    - host -t A {{ name_node }}
+    - host -t A {{ name_node }}.{{ domain }}
+    - host –t A {{ domain }}
+    - host –t A {{ client_sssd }}.{{ domain }}
+
 - name: Install samba4, kerberos, winbind
   apt: pkg={{item}}
   with_items:
@@ -14,35 +27,97 @@
    - libnss-winbind
    - libapache2-mod-auth-kerb
 
+- name: Stop of services for your configuration
+  systemd:
+    state: stopped
+    name: "{{ items }}"
+  with_items:
+    - samba-ad-dc.service
+    - smbd.service
+    - nmbd.service
+    - winbind.service
+
+- name: Disable of services for your configuration
+  systemd:
+    enabled: no
+    name: "{{ items }}"
+  with_items:
+    - samba-ad-dc.service
+    - smbd.service
+    - nmbd.service
+    - winbind.service
+
+- name: Move file of smb.conf
+  command: "{{ items }}"
+  with_items:
+    - mv /etc/samba/smb.conf /etc/samba/smb.conf.initial
+    - mv /etc/krb5.conf /etc/krb5.conf.initial
+    - ln –s /var/lib/samba/private/krb5.conf /etc/
+
 - name: Configure Krb5
   template:
     src: krb5.conf
     dest: /etc/samba/krb5.conf
 
-- name: Create dir alluser
-  command: mkdir -p /home/shares/allusers
+- name: Deploy of samba4
+  command: samba-tool domain provision --use-rfc2307 --realm={{ kerberos_realm|upper }} --adminpass={{ adminpass }}  --domain={{ domain_simple }} --host-name={{ name_node }} --server-role=dc --dns-backend=SAMBA_INTERNAL
 
-- name: Chown user
-  command: chown -R root:users /home/shares/allusers/
-
-- name: Chmod
-  command: chmod -R ug+rwx,o+rx-w /home/shares/allusers/
-
-- name: samba_users | adding samba users to samba groups
-  user:
-    name: "{{ item[0]['name'] }}"
-    groups: "{{ item[1] }}"
-    append: yes
-  with_subelements:
-    - "{{ samba_users }}"
-    - groups
-
-- name: samba_users | creating samba user passwords
-  shell: "(echo {{ item['smbpasswd'] }}; echo {{ item['smbpasswd'] }}) | smbpasswd -s -a {{ item['name'] }}"
-  with_items: "{{ samba_users }}"
-  
-- name: Enable samba4
+- name: Start of services for your configuration
   systemd:
-    name: smbd
-    state: restarted
+    state: started
+    name: "{{ items }}"
+  with_items:
+    - samba-ad-dc.service
+
+- name: Enabled of services for your configuration
+  systemd:
     enabled: yes
+    name: "{{ items }}"
+  with_items:
+    - samba-ad-dc.service
+
+- name: Replace IP direction of nameserver
+  replace:
+    path: /etc/resolv.conf
+    regexp: '^nameserver.*'
+    replace: "nameserver {{ hostvars[groups['samba4'][1]].ansible_all_ipv4_addresses[num_interface] }}"
+
+- name: Create user of test for to check that check correctly
+  command: samba-tool user add {{ userexample }} {{ passwordexample }} --given-name={{ userexample }} --surname={{ userexample }} --mail-address={{ userexample }}@{{ domain }}
+
+- name: Create group for user of test and add to this group
+  command: "{{ items }}"
+  with_items:
+    - samba-tool group add usuarios
+    - samba-tool group addmembers usuarios {{ userexample }}
+
+- name: Configure smb.conf
+  template:
+    src: smb.conf
+    dest: /etc/samba/smb.conf
+
+- name: Restart the services for to apply the configuration
+  systemd:
+    state: restarted
+    name: "{{ items }}"
+  with_items:
+    - samba-ad-dc.service
+
+- name: Changes auth pam with the option of create directory in the first login
+  pamd:
+    name: system-auth
+    type: auth
+    control: sufficient
+    module_path: pam_mkhomedir.so
+    new_control: required
+
+- name: Configure file of nsswitch
+  template:
+    src: nsswitch.conf
+    dest: /etc/nsswitch.conf
+
+- name: Change line for that the users can to change the password from command line
+  command: sed -i 's/use_authtok//g' /etc/pam.d/common-password
+
+- name: Enabled root for user of test
+  command: usermod -aG sudo {{domain_simple|upper}}\{{ userexample }}

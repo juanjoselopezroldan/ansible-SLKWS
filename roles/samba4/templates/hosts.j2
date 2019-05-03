@@ -1,0 +1,4 @@
+127.0.0.1	localhost
+{{ hostvars[groups['samba4'][1]].ansible_all_ipv4_addresses[num_interface] }} {{ name_node }} {{ name_node }}.{{ domain }}
+{{ hostvars[groups['samba4'][1]].ansible_all_ipv4_addresses[num_interface] }}	{{ domain }}
+{{ hostvars[groups['sssd'][1]].ansible_all_ipv4_addresses[num_interface] }}	{{ client_sssd }} {{ client_sssd }}.{{ domain }}
