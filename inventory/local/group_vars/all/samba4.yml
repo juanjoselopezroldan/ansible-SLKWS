@@ -1,7 +1,5 @@
 ---
 kerberos_client_dns_lookup_realm: "false"
 kerberos_client_dns_lookup_kdc: "true"
-userexample: "test"
-passwordexample: "asd.123"
 reverse_zone: "10.45.10"
 reverse_reverse_zone: "10.45.10"

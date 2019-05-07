@@ -1,13 +1,16 @@
+# Update the repositories and update of packages
 - name: apt cache is up to date
   apt: 
     update_cache: yes
     upgrade: yes
 
+# Define the nodes in the file Hosts
 - name: Define nodes in the file hosts
   template:
     src: hosts.j2
     dest: /etc/hosts
 
+# Install packages of samba4, kerberos, winbind
 - name: Install samba4, kerberos, winbind
   apt: pkg={{item}}
   with_items:
@@ -21,6 +24,7 @@
    - libapache2-mod-auth-kerb
    - dnsutils
 
+# Define locale need for this configuration
 - name: Define locale correctly
   command: locale-gen es_ES.UTF-8
 
@@ -32,6 +36,7 @@
 #     - host –t A {{ domain }}
 #     - host –t A {{ client_sssd }}.{{ domain }}
 
+# Stop of services for your configuration
 - name: Stop of services for your configuration
   systemd:
     state: stopped
@@ -42,6 +47,7 @@
     - nmbd.service
     - winbind.service
 
+# Disable of services for your configuration
 - name: Disable of services for your configuration
   systemd:
     enabled: no
@@ -52,6 +58,7 @@
     - nmbd.service
     - winbind.service
 
+# Move files of configuration of samba and kerberos for later define the new configuration
 - name: Move file of smb.conf
   command: "{{ item }}"
   with_items:
@@ -59,14 +66,17 @@
     - mv /etc/krb5.conf /etc/krb5.conf.initial
     - ln -s /var/lib/samba/private/krb5.conf /etc/
 
+# Add new configuration of Kerberos
 - name: Configure Krb5
   template:
     src: "krb5.conf.j2"
     dest: "/etc/samba/krb5.conf"
 
+# Deploy of samba for the configure of domain
 - name: Deploy of samba4
   command: samba-tool domain provision --use-rfc2307 --realm={{ kerberos_realm|upper }} --adminpass={{ adminpass }}  --domain={{ domain_simple }} --host-name={{ name_node }} --server-role=dc --dns-backend=SAMBA_INTERNAL
 
+# Start the service of samba
 - name: Start of services for your configuration
   systemd:
     state: started
@@ -74,6 +84,7 @@
   with_items:
     - samba-ad-dc.service
 
+# Enabled of service of Samba
 - name: Enabled of services for your configuration
   systemd:
     enabled: yes
@@ -81,26 +92,31 @@
   with_items:
     - samba-ad-dc.service
 
+# Change the direction ip for to change the DNS
 - name: Replace IP direction of nameserver
   replace:
     path: /etc/resolv.conf
     regexp: '^nameserver.*'
     replace: "nameserver {{ hostvars[groups['samba4'][0]].ansible_all_ipv4_addresses[num_interface] }}"
 
+# Create user of test for to check correctly later that the service is working 
 - name: Create user of test for to check that check correctly
   command: samba-tool user add {{ userexample }} {{ passwordexample }} --given-name={{ userexample }} --surname={{ userexample }} --mail-address={{ userexample }}@{{ domain }}
 
+# Create group for to add the user that is created
 - name: Create group for user of test and add to this group
   command: "{{ item }}"
   with_items:
     - samba-tool group add usuarios
     - samba-tool group addmembers usuarios {{ userexample }}
 
+# Change the configuration of Samba
 - name: Configure smb.conf
   template:
     src: "smb.conf.j2"
     dest: "/etc/samba/smb.conf"
 
+# Restart service of Samba for to apply the changes
 - name: Restart the services for to apply the configuration
   systemd:
     state: restarted
@@ -108,16 +124,20 @@
   with_items:
     - samba-ad-dc.service
 
+# Changes in the options of auth for that the user can autentication
 - name: Changes auth pam with the option of create directory in the first login
   shell: "echo 'session    required    pam_mkhomedir.so skel=/etc/skel/ umask=0022' >> /etc/pam.d/common-session"
 
+# Changes type of auth in the file nsswitch for that can to use the auth with winbind
 - name: Configure file of nsswitch
   template:
     src: nsswitch.conf
     dest: /etc/nsswitch.conf
 
+# Change the auth with the password in the file common-password
 - name: Change line for that the users can to change the password from command line
   command: sed -i 's/use_authtok//g' /etc/pam.d/common-password
 
+# Enable user of test for to check the connection with root with this user of test
 - name: Enabled root for user of test
   command: usermod -aG sudo {{ domain_simple|upper }}\\{{ userexample }}

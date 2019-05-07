@@ -1,8 +1,10 @@
+# Define the nodes in the file hosts
 - name: Define nodes in the file hosts
   template:
     src: hosts.j2
     dest: /etc/hosts
 
+# Install packages for the use of SSSD
 - name: Install SSSD and other packages
   apt:
     name: "{{ sssd_packages }}"
@@ -10,16 +12,19 @@
   tags:
     - install_packages_sssd
 
+# Define locale need for this configuration
 - name: Define locale correctly
   command: "{{ item }}"
   with_items:
     - locale-gen es_ES.UTF-8
 
+# Define the new configuration of Kerberos
 - name: Define configuration of krb5
   template:
     src: krb5.conf.j2
     dest: /etc/krb5.conf
 
+# Define the configuration of service SSSD
 - name: Define configuration SSSD
   template:
     src: "sssd.conf.j2"
@@ -28,32 +33,30 @@
     group: root
     mode: 0600
 
+# Define configuration of realmd
 - name: Define configuration of realmd
   template:
     src: realmd.conf.j2
     dest: /etc/realmd.conf
 
-- name: Connecto to AD
-  command: "{{ item }}"
-  with_items:
-    - realm discover -v {{ domain }}
-    - realm list
-    - realm permit --all
-
+# Define configuration of connection with Samba
 - name: Define configuration of smb.conf
   template:
     src: smb.conf.j2
     dest: /etc/samba/smb.conf
 
+# Changes in the auth pam with the option of create directory in the first login
 - name: Changes auth pam with the option of create directory in the first login
   shell: "echo 'session    required    pam_mkhomedir.so skel=/etc/skel/ umask=0022' >> /etc/pam.d/common-session"
 
+# Changes in the modo of autentication
 - name: Insert mode of auth
   command: "{{ item }}"
   with_items:
   - echo "session    required    pam_mkhomedir.so    skel=/etc/skel/    umask=0022" >> /etc/pam.d/common-account
   - echo "password       [success=1 default=ignore]      pam_winbind.so try_first_pass" >> /etc/pam.d/common-password
 
+# Restart service of realmd for to apply the changes
 - name: Restart and enabled the services for to apply the configuration
   systemd:
     state: restarted
@@ -62,22 +65,38 @@
   with_items:
     - realmd
 
+# Install the packages of winbind
 - name: Install Winbind
   apt:
     name: "{{ packages }}"
     update_cache: yes
-    packages:
+  vars:
+      packages:
       - winbind
       - policykit-1
 
+# Add in the resolv.conf the nameserve of server-admin of kerberos
 - name: Command Kinit
   command: "{{ item }}"
   with_items:
     - sed -i "1i\nameserver {{hostvars["node-1"].ansible_all_ipv4_addresses[1]}}" /etc/resolv.conf
-    - ntpdate {{ domain }}
-    - echo "{{ adminpass }}" | kinit administrator@{{ kerberos_realm|upper }}
-    - klist
+#    - ntpdate {{ domain }}
 
+# Create ticket of auth with kerberos
+- name:
+  shell: echo {{ passwordexample }} | kinit {{ userexample }}@{{ kerberos_realm|upper }}
+
+# Connect with the server of kerberos and to create the file keytab
+- name: Command Kinit
+  command: "{{ item }}"
+  with_items:
+#    - klist
+    - realm discover -v {{ domain }}
+    - realm list
+    - realm permit --all
+    - net ads join -k
+
+# Restart service SSSD for to use the file keytab
 - name: Restart the services for to apply the configuration of SSSD
   systemd:
     state: restarted
