@@ -2,7 +2,12 @@
 samba4_setup: true
 sssd_setup: true
 
+kerberos_realm: "example.com"
 domain: "example.com"
+domain_simple: "example"
+name_node: "node-1"
+client_sssd: "node-2"
+adminpass: "asd.123"
 
 # In virtualbox: 0 is internal, 1 private and 2 public IP
 # For more information see the Vagrantfile

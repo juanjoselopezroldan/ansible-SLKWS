@@ -1,17 +1,19 @@
 ---
 sssd_packages:
+  - ntpdate
+  - adcli
+  - realmd
+  - krb5-user
+  - samba-common-bin
+  - samba-libs
+  - samba-dsdb-modules
   - sssd
-  - sssd-ad
-  - sssd-ad-common
-  - chrony
-  - sssd-common
-  - sssd-krb5
-  - sssd-krb5-common
-  - sssd-ldap
   - sssd-tools
-  - samba-dev
-
-obfuscate_pass_ldap: false
+  - libnss-sss
+  - libpam-sss
+  - packagekit
+  - policykit-1
+  - language-pack-es
 
 command_obfuscate_ldap_pass: "sss_obfuscate --domain {{ domain }} --stdin << EOF
 4dm1n

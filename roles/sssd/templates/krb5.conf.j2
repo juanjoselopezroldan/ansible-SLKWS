@@ -1,0 +1,20 @@
+[libdefaults]
+	default_realm = {{ domain|upper }}
+
+# The following krb5.conf variables are only for MIT Kerberos.
+	krb4_config = /etc/krb.conf
+	krb4_realms = /etc/krb.realms
+	kdc_timesync = 1
+	ccache_type = 4
+	forwardable = true
+	proxiable = true
+
+[realms]
+	EXMAPLE.COM = {
+		kdc = {{ name_node }}.{{ domain }}
+		admin_server = {{ name_node }}.{{ domain }}
+	}
+
+[login]
+	krb4_convert = true
+	krb4_get_tickets = false

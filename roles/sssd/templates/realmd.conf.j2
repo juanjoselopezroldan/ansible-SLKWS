@@ -1,0 +1,14 @@
+[active-directory]
+os-name = Linux Ubuntu
+os-version = 16.04
+
+[service]
+automatic-install = yes
+
+ [users]
+default-home = /home/%d/%u
+default-shell = /bin/bash
+
+[{{ domain }}]
+user-principal = yes
+fully-qualified-names = no

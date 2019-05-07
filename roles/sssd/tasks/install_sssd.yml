@@ -1,8 +1,87 @@
-- name: Install SSSD
+- name: Define nodes in the file hosts
+  template:
+    src: hosts.j2
+    dest: /etc/hosts
+
+- name: Install SSSD and other packages
   apt:
     name: "{{ sssd_packages }}"
     update_cache: yes
   tags:
     - install_packages_sssd
 
-- include: config_sssd.yml
+- name: Define locale correctly
+  command: "{{ item }}"
+  with_items:
+    - locale-gen es_ES.UTF-8
+
+- name: Define configuration of krb5
+  template:
+    src: krb5.conf.j2
+    dest: /etc/krb5.conf
+
+- name: Define configuration SSSD
+  template:
+    src: "sssd.conf.j2"
+    dest: "/etc/sssd/sssd.conf"
+    owner: root
+    group: root
+    mode: 0600
+
+- name: Define configuration of realmd
+  template:
+    src: realmd.conf.j2
+    dest: /etc/realmd.conf
+
+- name: Connecto to AD
+  command: "{{ item }}"
+  with_items:
+    - realm discover -v {{ domain }}
+    - realm list
+    - realm permit --all
+
+- name: Define configuration of smb.conf
+  template:
+    src: smb.conf.j2
+    dest: /etc/samba/smb.conf
+
+- name: Changes auth pam with the option of create directory in the first login
+  shell: "echo 'session    required    pam_mkhomedir.so skel=/etc/skel/ umask=0022' >> /etc/pam.d/common-session"
+
+- name: Insert mode of auth
+  command: "{{ item }}"
+  with_items:
+  - echo "session    required    pam_mkhomedir.so    skel=/etc/skel/    umask=0022" >> /etc/pam.d/common-account
+  - echo "password       [success=1 default=ignore]      pam_winbind.so try_first_pass" >> /etc/pam.d/common-password
+
+- name: Restart and enabled the services for to apply the configuration
+  systemd:
+    state: restarted
+    enabled: yes
+    name: "{{ item }}"
+  with_items:
+    - realmd
+
+- name: Install Winbind
+  apt:
+    name: "{{ packages }}"
+    update_cache: yes
+    packages:
+      - winbind
+      - policykit-1
+
+- name: Command Kinit
+  command: "{{ item }}"
+  with_items:
+    - sed -i "1i\nameserver {{hostvars["node-1"].ansible_all_ipv4_addresses[1]}}" /etc/resolv.conf
+    - ntpdate {{ domain }}
+    - echo "{{ adminpass }}" | kinit administrator@{{ kerberos_realm|upper }}
+    - klist
+
+- name: Restart the services for to apply the configuration of SSSD
+  systemd:
+    state: restarted
+    name: "{{ item }}"
+  with_items:
+    - sssd
+
