@@ -10,7 +10,7 @@
 	proxiable = true
 
 [realms]
-	EXMAPLE.COM = {
+	{{ kerberos_realm|upper }} = {
 		kdc = {{ name_node }}.{{ domain }}
 		admin_server = {{ name_node }}.{{ domain }}
 	}
